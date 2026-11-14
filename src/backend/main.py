@@ -6,7 +6,7 @@ import psycopg
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from psycopg.rows import dict_row
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
 Group = Literal["chest", "arms", "legs", "back"]
 
@@ -19,7 +19,8 @@ class LogIn(BaseModel):
 
 
 class WeightIn(BaseModel):
-    weight: float = Field(gt=0, le=1000)
+    # Stored to one decimal place (169.1); anything finer is rounded.
+    weight: Annotated[float, Field(ge=1, le=1000), AfterValidator(lambda w: round(w, 1))]
 
 
 def db():

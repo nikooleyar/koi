@@ -19,7 +19,8 @@ for bad in [
     raise AssertionError(f"accepted bad input: {bad}")
 
 assert WeightIn(weight=172.4).weight == 172.4
-for bad in [0, -1, 1001]:
+assert WeightIn(weight=169.14).weight == 169.1 and WeightIn(weight=169).weight == 169.0
+for bad in [0, 0.04, -1, 1001]:
     try:
         WeightIn(weight=bad)
     except ValidationError:

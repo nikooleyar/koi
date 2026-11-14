@@ -468,7 +468,7 @@ function WeightView() {
       const saved = await post<Weight>('/api/weight', { weight: Number(weight) })
       setRows((old) => [saved, ...old])
       // Built from the server's reply, so it only shows once the row is in the database
-      setNotice(`Saved: ${saved.weight} lb`)
+      setNotice(`Saved: ${saved.weight.toFixed(1)} lb`)
       setWeight('')
     } catch {
       // The field is left filled in so nothing typed is lost
@@ -483,7 +483,7 @@ function WeightView() {
   const values = recent.map((r) => r.weight)
   const first = recent[0]
   const latest = recent.at(-1)
-  const change = latest && first ? +(latest.weight - first.weight).toFixed(1) : 0
+  const change = latest && first ? latest.weight - first.weight : 0
   // Body weight moves by a few pounds, so the scale hugs the data instead of starting at 0
   const min = Math.floor((Math.min(...values) - 2) / 5) * 5
   const max = Math.ceil((Math.max(...values) + 2) / 5) * 5
@@ -509,7 +509,7 @@ function WeightView() {
               inputMode="decimal"
               min="1"
               max="1000"
-              step="any"
+              step="0.1"
               required
             />
           </label>
@@ -527,10 +527,10 @@ function WeightView() {
         <section className="card wide">
           <div>
             <p className="muted">Latest</p>
-            <div className="big xl">{latest ? `${latest.weight} lb` : '—'}</div>
+            <div className="big xl">{latest ? `${latest.weight.toFixed(1)} lb` : '—'}</div>
             <p className="muted">
               {recent.length > 1
-                ? `${change > 0 ? '+' : ''}${change} lb since ${when(first.logged_at)}`
+                ? `${change > 0 ? '+' : ''}${change.toFixed(1)} lb since ${when(first.logged_at)}`
                 : latest
                   ? when(latest.logged_at)
                   : 'Nothing logged'}
@@ -554,7 +554,7 @@ function WeightView() {
           {rows.map((r) => (
             <li key={r.id}>
               <time dateTime={r.logged_at}>{when(r.logged_at)}</time>
-              <b>{r.weight} lb</b>
+              <b>{r.weight.toFixed(1)} lb</b>
             </li>
           ))}
         </ul>
