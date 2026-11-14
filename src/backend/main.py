@@ -18,6 +18,10 @@ class LogIn(BaseModel):
     rest_seconds: int | None = Field(default=None, ge=0, le=3600)
 
 
+class WeightIn(BaseModel):
+    weight: float = Field(gt=0, le=1000)
+
+
 def db():
     # Peer auth over the unix socket as Linux user koi, so no password.
     # shortcut: one connection per request, add a pool if requests ever get slow.
@@ -34,6 +38,13 @@ async def lifespan(app: FastAPI):
                 exercise text NOT NULL,
                 weight double precision NOT NULL,
                 rest_seconds integer,
+                logged_at timestamptz NOT NULL DEFAULT now()
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS body_weight (
+                id bigserial PRIMARY KEY,
+                weight double precision NOT NULL,
                 logged_at timestamptz NOT NULL DEFAULT now()
             )"""
         )
@@ -63,6 +74,21 @@ def add_log(log: LogIn):
         return conn.execute(
             "INSERT INTO logs (muscle_group, exercise, weight, rest_seconds) VALUES (%s, %s, %s, %s) RETURNING *",
             (log.muscle_group, log.exercise, log.weight, log.rest_seconds),
+        ).fetchone()
+
+
+@app.get("/api/weight")
+def list_weight():
+    with db() as conn:
+        # shortcut: newest 200 only, add paging or a date range when the history outgrows it.
+        return conn.execute("SELECT * FROM body_weight ORDER BY logged_at DESC LIMIT 200").fetchall()
+
+
+@app.post("/api/weight", status_code=201)
+def add_weight(entry: WeightIn):
+    with db() as conn:
+        return conn.execute(
+            "INSERT INTO body_weight (weight) VALUES (%s) RETURNING *", (entry.weight,)
         ).fetchone()
 
 

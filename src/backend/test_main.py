@@ -1,7 +1,7 @@
 # Self-check for input validation. Run: python test_main.py (needs no database).
 from pydantic import ValidationError
 
-from main import LogIn
+from main import LogIn, WeightIn
 
 ok = LogIn(muscle_group="chest", exercise="  Bench Press ", weight=135)
 assert ok.exercise == "Bench Press" and ok.rest_seconds is None
@@ -17,5 +17,13 @@ for bad in [
     except ValidationError:
         continue
     raise AssertionError(f"accepted bad input: {bad}")
+
+assert WeightIn(weight=172.4).weight == 172.4
+for bad in [0, -1, 1001]:
+    try:
+        WeightIn(weight=bad)
+    except ValidationError:
+        continue
+    raise AssertionError(f"accepted bad body weight: {bad}")
 
 print("ok")

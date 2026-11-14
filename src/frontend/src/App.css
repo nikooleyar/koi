@@ -174,9 +174,13 @@ main {
   flex: 1 1 300px;
 }
 
-.history {
+.history,
+.wide {
   flex: 2 1 380px;
   min-width: 0;
+}
+
+.history {
   gap: 4px;
 }
 

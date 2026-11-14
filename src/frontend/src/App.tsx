@@ -15,6 +15,7 @@ type Log = {
 const VIEWS = [
   { id: 'log', label: 'Log', icon: 'M12 5v14M5 12h14' },
   { id: 'stats', label: 'Stats', icon: 'M4 19V5M4 19h16M8 15l4-5 3 3 5-6' },
+  { id: 'weight', label: 'Weight', icon: 'M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 8h6l-1 3h-4z' },
   { id: 'settings', label: 'Settings', icon: 'M4 7h10M18 7h2M4 17h2M10 17h10M16 5v4M8 15v4' },
 ] as const
 type View = (typeof VIEWS)[number]['id']
@@ -26,6 +27,20 @@ function when(iso: string) {
   return d.toDateString() === new Date().toDateString()
     ? `Today, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
     : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString([], { month: 'numeric', day: 'numeric' })
+
+async function post<T>(url: string, body: unknown): Promise<T> {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // Server can be slow
+    signal: AbortSignal.timeout(10000),
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) throw new Error()
+  return r.json()
 }
 
 function App() {
@@ -82,6 +97,7 @@ function App() {
       <main>
         {view === 'log' && <LogView />}
         {view === 'stats' && <StatsView />}
+        {view === 'weight' && <WeightView />}
         {view === 'settings' && (
           <>
             <h1>Settings</h1>
@@ -152,20 +168,12 @@ function GroupLog({ group }: { group: Group }) {
     setError('')
     setNotice('')
     try {
-      const r = await fetch('/api/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // Server can be slow
-        signal: AbortSignal.timeout(10000),
-        body: JSON.stringify({
-          muscle_group: group,
-          exercise,
-          weight: Number(weight),
-          rest_seconds: rest === '' ? null : Number(rest),
-        }),
+      const saved = await post<Log>('/api/logs', {
+        muscle_group: group,
+        exercise,
+        weight: Number(weight),
+        rest_seconds: rest === '' ? null : Number(rest),
       })
-      if (!r.ok) throw new Error()
-      const saved: Log = await r.json()
       setLogs((old) => [saved, ...old])
       // Built from the server's reply, so it only shows once the row is in the database
       setNotice(`Saved: ${saved.exercise}, ${saved.weight} lb`)
@@ -338,9 +346,6 @@ function StatsView() {
   const all = GROUPS.flatMap((g) => data[g])
   const yMax = Math.max(50, Math.ceil(Math.max(0, ...all.map((l) => l.weight)) / 50) * 50)
   const animating = shown.length !== series.length
-  const x = (i: number, n: number) => (n > 1 ? (i / (n - 1)) * 100 : 50)
-  const y = (v: number) => 100 - (v / yMax) * 100
-  const points = shown.map((v, i) => `${x(i, shown.length)},${y(v)}`).join(' ')
 
   const week = all.filter((l) => now - Date.parse(l.logged_at) < 7 * 864e5)
   const heaviest = all.reduce<Log | null>((best, l) => (!best || l.weight > best.weight ? l : best), null)
@@ -359,38 +364,15 @@ function StatsView() {
           </div>
           <GroupTabs value={group} onPick={pick} />
         </div>
-        <div className="chart">
-          <div className="ylabels" aria-hidden="true">
-            {[1, 0.8, 0.6, 0.4, 0.2, 0].map((f) => (
-              <span key={f}>{yMax * f}</span>
-            ))}
-          </div>
-          <div className="plot">
-            {shown.length > 1 && (
-              <svg
-                role="img"
-                aria-label={`Top ${group} weight per session, in pounds`}
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-              >
-                <polygon points={`${points} 100,100 0,100`} />
-                <polyline points={points} />
-              </svg>
-            )}
-            {!animating &&
-              shown.map((v, i) => (
-                <div key={i} className="dot" style={{ left: `${x(i, shown.length)}%`, top: `${y(v)}%` }} />
-              ))}
-            {!shown.length && <p className="empty">No {group} entries yet.</p>}
-          </div>
-          <div className="xlabels" aria-hidden="true">
-            {series.map((l, i) => (
-              <span key={l.id} style={{ left: `${x(i, series.length)}%` }}>
-                {new Date(l.logged_at).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}
-              </span>
-            ))}
-          </div>
-        </div>
+        <LineChart
+          values={shown}
+          labels={series.map((l) => shortDate(l.logged_at))}
+          min={0}
+          max={yMax}
+          dots={!animating}
+          label={`Top ${group} weight per session, in pounds`}
+          empty={`No ${group} entries yet.`}
+        />
       </section>
 
       <div className="tiles">
@@ -414,6 +396,169 @@ function StatsView() {
           <p className="muted">between logged sets</p>
         </section>
       </div>
+    </>
+  )
+}
+
+function LineChart(props: {
+  values: number[]
+  labels: string[]
+  min: number
+  max: number
+  dots: boolean
+  label: string
+  empty: string
+}) {
+  const { values, min, max } = props
+  const x = (i: number, n: number) => (n > 1 ? (i / (n - 1)) * 100 : 50)
+  const y = (v: number) => 100 - ((v - min) / (max - min)) * 100
+  const points = values.map((v, i) => `${x(i, values.length)},${y(v)}`).join(' ')
+  return (
+    <div className="chart">
+      <div className="ylabels" aria-hidden="true">
+        {[1, 0.8, 0.6, 0.4, 0.2, 0].map((f) => (
+          <span key={f}>{+(min + (max - min) * f).toFixed(1)}</span>
+        ))}
+      </div>
+      <div className="plot">
+        {values.length > 1 && (
+          <svg role="img" aria-label={props.label} viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polygon points={`${points} 100,100 0,100`} />
+            <polyline points={points} />
+          </svg>
+        )}
+        {props.dots &&
+          values.map((v, i) => (
+            <div key={i} className="dot" style={{ left: `${x(i, values.length)}%`, top: `${y(v)}%` }} />
+          ))}
+        {!values.length && <p className="empty">{props.empty}</p>}
+      </div>
+      <div className="xlabels" aria-hidden="true">
+        {props.labels.map((text, i) => (
+          <span key={i} style={{ left: `${x(i, props.labels.length)}%` }}>
+            {text}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+type Weight = { id: number; weight: number; logged_at: string }
+
+function WeightView() {
+  const [rows, setRows] = useState<Weight[]>([])
+  const [weight, setWeight] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    fetch('/api/weight')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(setRows)
+      .catch(() => setError('Could not load weight history.'))
+  }, [])
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    setNotice('')
+    try {
+      const saved = await post<Weight>('/api/weight', { weight: Number(weight) })
+      setRows((old) => [saved, ...old])
+      // Built from the server's reply, so it only shows once the row is in the database
+      setNotice(`Saved: ${saved.weight} lb`)
+      setWeight('')
+    } catch {
+      // The field is left filled in so nothing typed is lost
+      setError('Not saved. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // The API returns newest first; the chart shows the latest 30 entries, oldest first
+  const recent = rows.slice(0, 30).reverse()
+  const values = recent.map((r) => r.weight)
+  const first = recent[0]
+  const latest = recent.at(-1)
+  const change = latest && first ? +(latest.weight - first.weight).toFixed(1) : 0
+  // Body weight moves by a few pounds, so the scale hugs the data instead of starting at 0
+  const min = Math.floor((Math.min(...values) - 2) / 5) * 5
+  const max = Math.ceil((Math.max(...values) + 2) / 5) * 5
+
+  return (
+    <>
+      <h1>Body weight</h1>
+      <div className="cols">
+        <form
+          className="card"
+          onSubmit={(e) => {
+            e.preventDefault()
+            save()
+          }}
+        >
+          <h2>New entry</h2>
+          <label>
+            Weight (lb)
+            <input
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              type="number"
+              inputMode="decimal"
+              min="1"
+              max="1000"
+              step="any"
+              required
+            />
+          </label>
+          <button type="submit" className="primary" disabled={saving}>
+            {saving ? 'Saving…' : 'Log weight'}
+          </button>
+          {error && <p role="alert">{error}</p>}
+          {notice && (
+            <p role="status" className="notice">
+              ✓ {notice}
+            </p>
+          )}
+        </form>
+
+        <section className="card wide">
+          <div>
+            <p className="muted">Latest</p>
+            <div className="big xl">{latest ? `${latest.weight} lb` : '—'}</div>
+            <p className="muted">
+              {recent.length > 1
+                ? `${change > 0 ? '+' : ''}${change} lb since ${when(first.logged_at)}`
+                : latest
+                  ? when(latest.logged_at)
+                  : 'Nothing logged'}
+            </p>
+          </div>
+          <LineChart
+            values={values}
+            labels={recent.map((r, i) => (i === 0 || i === recent.length - 1 ? shortDate(r.logged_at) : ''))}
+            min={min}
+            max={max}
+            dots
+            label="Body weight over time, in pounds"
+            empty="No weight entries yet."
+          />
+        </section>
+      </div>
+
+      <section className="card">
+        <h2>History</h2>
+        <ul className="logs">
+          {rows.map((r) => (
+            <li key={r.id}>
+              <time dateTime={r.logged_at}>{when(r.logged_at)}</time>
+              <b>{r.weight} lb</b>
+            </li>
+          ))}
+        </ul>
+      </section>
     </>
   )
 }
