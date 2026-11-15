@@ -86,13 +86,20 @@ body.phone .mock { width: 100%; max-width: 390px; margin-inline: auto; }
 .shell { --side-w: 200px; --gap: 16px; }
 .side { transition: margin-left .32s cubic-bezier(.3,.7,.2,1), transform .32s cubic-bezier(.3,.7,.2,1), opacity .25s, visibility .32s; }
 .mock.collapsed .side { margin-left: calc(-1 * (var(--side-w) + var(--gap))); opacity: 0; visibility: hidden; }
-@media (prefers-reduced-motion: reduce) { .side, .sheet, .scrim, .fab svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .side, .sheet, .scrim, .fab svg, .acc-body, .acc::after { transition: none; } }
 .h1 { font-size: 28px; }
 .h2 { font-size: 18px; }
 .tabs { display: flex; gap: 4px; padding: 4px; border-radius: calc(var(--m-rc) + 4px); }
 .tabs button { flex: 1; padding: 0 14px; text-transform: capitalize; }
 .card { box-sizing: border-box; padding: 24px; border-radius: var(--m-r); display: grid; gap: 16px; align-content: start; }
 .history { gap: 4px; }
+/* Accordion: a grid row animating 1fr to 0fr slides to the content's real height in every browser. */
+.acc { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 32px; padding: 0; background: none; color: inherit; text-align: left; }
+.acc::after { content: ''; width: 9px; height: 9px; margin-right: 6px; border: solid var(--m-muted); border-width: 0 2px 2px 0; transform: translateY(2px) rotate(-135deg); transition: transform .3s; }
+.closed .acc::after { transform: translateY(-3px) rotate(45deg); }
+.acc-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .32s cubic-bezier(.3,.7,.2,1), visibility .32s; }
+.acc-body > * { min-height: 0; overflow: hidden; }
+.closed .acc-body { grid-template-rows: 0fr; visibility: hidden; }
 /* Floating + button: sticks to the bottom right of the screen while the app is in view. */
 .mock { overflow: clip; }
 .fabwrap { position: sticky; bottom: 16px; z-index: 2; justify-self: end; width: 56px; height: 56px; }
@@ -112,6 +119,16 @@ body.phone .mock { width: 100%; max-width: 390px; margin-inline: auto; }
   background: var(--m-field); color: var(--m-fg);
   box-shadow: inset 0 1px 3px var(--m-well);
 }
+/* Exercise picker: arrow lists every previous exercise in the group, typing narrows it. */
+.combo { position: relative; }
+.combo input { padding-right: 48px; }
+.arrow { position: absolute; right: 2px; top: 2px; width: 44px; height: 44px; display: grid; place-items: center; background: none; color: var(--m-muted); border-radius: var(--m-rc); }
+.arrow svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.opts { position: absolute; z-index: 3; top: calc(100% + 6px); left: 0; right: 0; display: grid; padding: 6px; max-height: 210px; overflow: auto; border-radius: 16px; background: var(--m-dot); border: 1px solid var(--m-edge); box-shadow: var(--m-shadow); }
+.opts[hidden] { display: none; }
+.opts button { min-height: 40px; padding: 0 10px; border-radius: 10px; background: none; color: var(--m-fg); font-size: 15px; text-align: left; }
+.opts button:hover, .opts button:focus-visible { background: var(--m-line); }
+.opts p { padding: 10px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .primary { height: 52px; border-radius: var(--m-rc); font-size: 16px; font-weight: 600; }
 .m-muted { font-size: 13px; color: var(--m-muted); }
@@ -211,7 +228,7 @@ body.phone .mock { width: 100%; max-width: 390px; margin-inline: auto; }
 <script>
 const ACCENTS = { Orange: '#FF8552', Teal: '#3DD6C3', Blue: '#6EA8FF', Lime: '#C8E55A' };
 const STUDIES = [
-  { id: 'smoke', name: 'Smoke, with a sliding sidebar', note: 'The chosen direction. Same charcoal palette and solid accent buttons, with dark frosted glass panels. The chart sits at the top, and the + button in the bottom right opens the New entry window. The three-line button beside the page title slides the sidebar out and back in.' },
+  { id: 'smoke', name: 'Smoke, with a sliding sidebar', note: 'The chosen direction. Same charcoal palette and solid accent buttons, with dark frosted glass panels. The chart sits at the top, and the + button in the bottom right opens the New entry window. The sidebar starts hidden; the three-line button beside the page title slides it in and out. History collapses when you click its heading.' },
   { id: 'frost', name: 'Frost', note: 'A daylight version. Milky white glass with dark text.' },
   { id: 'tide', name: 'Tide', note: 'The full liquid look. Clear, bright glass over deep color, pill-shaped controls, and tinted-glass buttons in place of solid fills. At phone width the sidebar becomes a floating tab bar.' },
 ];
@@ -234,7 +251,7 @@ const xy = PTS.map(([d, v], i) => [i / (PTS.length - 1) * 100, (HI - v) / (HI - 
 const line = xy.map(([x, y]) => x.toFixed(1) + ',' + y).join(' ');
 
 const mock = v => `
-<div class="mock v-${v}">
+<div class="mock v-${v} collapsed">
   <div class="blobs"><i></i><i></i><i></i></div>
   <div class="shell">
     <aside class="side glass">
@@ -244,7 +261,7 @@ const mock = v => `
     <div class="main">
       <div class="head">
         <div class="title">
-          <button type="button" class="burger glass" aria-label="Toggle sidebar" aria-expanded="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <button type="button" class="burger glass" aria-label="Toggle sidebar" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           <div class="h1">Log</div>
         </div>
         <div class="tabs glass">${['chest', 'arms', 'legs', 'back'].map((g, i) => `<button type="button" aria-pressed="${!i}">${g}</button>`).join('')}</div>
@@ -267,14 +284,22 @@ const mock = v => `
         </div>
       </div>
       <div class="card glass history">
-        <div class="h2">History</div>
+        <button type="button" class="h2 acc" aria-expanded="true">History</button>
+        <div class="acc-body">
         <ul class="logs">${LOGS.map(([e, t, w]) => `<li><div><strong>${e}</strong><p class="m-muted">${t}</p></div><b>${w}</b></li>`).join('')}</ul>
+        </div>
       </div>
       <div class="fabwrap">
         <div class="card glass sheet" role="dialog" aria-label="New entry">
           <div class="h2">New entry</div>
           <div class="tabs" role="group" aria-label="Muscle group">${['chest', 'arms', 'legs', 'back'].map((g, i) => `<button type="button" aria-pressed="${!i}">${g}</button>`).join('')}</div>
-          <label>Exercise<input id="${v}-ex" value="Bench press"></label>
+          <label>Exercise
+            <div class="combo">
+              <input id="${v}-ex" placeholder="Type or pick an exercise" autocomplete="off" role="combobox" aria-expanded="false">
+              <button type="button" class="arrow" aria-label="Show previous exercises"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+              <div class="opts" role="listbox" hidden></div>
+            </div>
+          </label>
           <div class="row2">
             <label>Weight (lb)<input id="${v}-wt" value="185" inputmode="decimal"></label>
             <label>Rest (sec)<input id="${v}-rest" value="150" inputmode="numeric"></label>
@@ -295,14 +320,47 @@ const sw = document.getElementById('swatches');
 sw.innerHTML = Object.entries(ACCENTS).map(([n, c], i) =>
   `<button type="button" aria-label="${n}" aria-pressed="${!i}" data-c="${c}" style="background:${c}"></button>`).join('');
 
+// Example "previously logged" exercises per group. In the app these would come from the logs.
+const EX = {
+  chest: ['Bench press', 'Chest press', 'Chest dip', 'Incline dumbbell press', 'Cable fly'],
+  arms: ['Barbell curl', 'Hammer curl', 'Triceps pushdown', 'Skull crusher'],
+  legs: ['Back squat', 'Leg press', 'Leg extension', 'Romanian deadlift'],
+  back: ['Lat pulldown', 'Barbell row', 'Seated cable row', 'Pull-up'],
+};
+const setOpts = (combo, open) => {
+  combo.querySelector('.opts').hidden = !open;
+  combo.querySelector('input').setAttribute('aria-expanded', open);
+};
+const showOpts = (combo, text) => {
+  const group = combo.closest('.sheet').querySelector('.tabs [aria-pressed="true"]').textContent;
+  const q = text.trim().toLowerCase();
+  combo.querySelector('.opts').innerHTML = EX[group].filter(n => n.toLowerCase().includes(q))
+    .map(n => `<button type="button" role="option">${n}</button>`).join('') || '<p class="m-muted">No previous exercise matches. Saving adds it as new.</p>';
+  setOpts(combo, true);
+};
+const hideOpts = () => document.querySelectorAll('.combo').forEach(c => setOpts(c, false));
+document.addEventListener('input', e => {
+  const combo = e.target.closest('.combo');
+  if (combo) showOpts(combo, e.target.value);
+});
+
 // One listener: pick within a group (accent, width, mock tabs, mock nav).
 document.addEventListener('click', e => {
   const b = e.target.closest('button');
+  const combo = e.target.closest('.combo');
+  if (b?.matches('.opts button')) combo.querySelector('input').value = b.textContent;
+  if (b?.matches('.arrow') && combo.querySelector('.opts').hidden) return showOpts(combo, '');
+  if (!combo || b) hideOpts();
+  if (combo) return;
   // The + button opens the entry window; the dimmed background, Save, or + again closes it.
   if (e.target.closest('.fab, .scrim, .sheet .primary')) {
     const m = e.target.closest('.mock');
     const open = m.classList.toggle('logging', b?.matches('.fab') ? undefined : false);
     m.querySelector('.fab').setAttribute('aria-expanded', open);
+    return;
+  }
+  if (b?.matches('.acc')) {
+    b.setAttribute('aria-expanded', !b.parentElement.classList.toggle('closed'));
     return;
   }
   if (b?.matches('.burger')) {
