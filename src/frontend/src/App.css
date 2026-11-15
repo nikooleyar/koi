@@ -57,10 +57,37 @@ button {
 
 /* Layout: sidebar + content. On a phone the sidebar becomes an icon rail. */
 .shell {
+  --side-w: 220px;
+  --gap: 16px;
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--gap);
   padding: 16px;
+}
+
+/* Soft colour behind everything, so the frosted panels have something to blur */
+.shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60vmax 60vmax at 0% 0%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%),
+    radial-gradient(50vmax 50vmax at 100% 35%, rgba(74, 108, 150, 0.35), transparent 70%),
+    radial-gradient(60vmax 60vmax at 40% 110%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%);
+}
+
+/* Smoked glass: every panel is a translucent, blurred surface with a lit top edge */
+.side,
+.card,
+.tabs {
+  background: rgba(30, 37, 45, 0.55);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
 .side {
@@ -68,14 +95,24 @@ button {
   top: 16px;
   flex: none;
   box-sizing: border-box;
-  width: 220px;
+  width: var(--side-w);
   height: calc(100dvh - 32px);
   padding: 20px 12px;
-  border-radius: 16px;
-  background: #171c22;
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  transition:
+    margin-left 0.32s cubic-bezier(0.3, 0.7, 0.2, 1),
+    opacity 0.25s,
+    visibility 0.32s;
+}
+
+/* Slides out past the left edge; the content widens as the margin shrinks */
+.side-closed .side {
+  margin-left: calc(-1 * (var(--side-w) + var(--gap)));
+  opacity: 0;
+  visibility: hidden;
 }
 
 .brand {
@@ -119,13 +156,52 @@ button {
 .tabs button[aria-pressed='true'] {
   background: var(--accent);
   color: #0f1317;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
+/* Bottom padding keeps the last row clear of the floating + button */
 main {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: grid;
   gap: 16px;
+  padding-bottom: 72px;
+}
+
+/* The menu button sits where every view's title starts, so the title makes room for it */
+main h1 {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-left: 56px;
+}
+
+main > .head {
+  align-items: flex-start;
+}
+
+.burger,
+.icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #e8ecef;
+}
+
+.burger {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: rgba(30, 37, 45, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.icon {
+  background: none;
+  color: #9aa4ae;
 }
 
 .head {
@@ -141,11 +217,13 @@ main {
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  background: #171c22;
 }
 
 .card .tabs {
-  background: #0f1317;
+  background: rgba(8, 11, 14, 0.55);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .tabs button {
@@ -157,8 +235,7 @@ main {
 .card {
   box-sizing: border-box;
   padding: 24px;
-  border-radius: 16px;
-  background: #171c22;
+  border-radius: 20px;
   display: grid;
   gap: 16px;
 }
@@ -199,7 +276,7 @@ input {
   padding: 0 14px;
   border: 1px solid #5e6873;
   border-radius: 10px;
-  background: #0f1317;
+  background: rgba(8, 11, 14, 0.55);
   color: #e8ecef;
   font-size: 16px;
 }
@@ -217,6 +294,7 @@ input {
   color: #0f1317;
   font-size: 16px;
   font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .primary:disabled {
@@ -255,7 +333,8 @@ input {
 
 .notice {
   position: fixed;
-  inset: auto 1rem 1rem;
+  inset: auto 1rem 5.5rem;
+  z-index: 4;
   margin: 0;
   padding: 1rem;
   border-radius: 0.5rem;
@@ -315,6 +394,7 @@ input {
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent));
 }
 
 .plot polygon {
@@ -382,16 +462,15 @@ input {
 
 @media (max-width: 700px) {
   .shell {
-    gap: 0;
-    padding: 0;
+    --side-w: 60px;
+    --gap: 12px;
+    padding: 12px;
   }
 
   .side {
-    top: 0;
-    width: 60px;
-    height: 100dvh;
+    top: 12px;
+    height: calc(100dvh - 24px);
     padding: 16px 8px;
-    border-radius: 0;
     align-items: center;
   }
 
@@ -411,7 +490,12 @@ input {
   }
 
   main {
-    padding: 20px 16px;
+    padding: 4px 4px 72px;
+  }
+
+  .burger {
+    top: 4px;
+    left: 4px;
   }
 
   .card {
@@ -420,5 +504,198 @@ input {
 
   .tabs {
     flex: 1;
+  }
+}
+
+/* Accordion: a grid row animating 1fr to 0fr slides to the content's real height in every browser */
+.acc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 32px;
+  padding: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.acc::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border: solid #9aa4ae;
+  border-width: 0 2px 2px 0;
+  transform: translateY(2px) rotate(-135deg);
+  transition: transform 0.3s;
+}
+
+.closed .acc::after {
+  transform: translateY(-3px) rotate(45deg);
+}
+
+.acc-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.32s cubic-bezier(0.3, 0.7, 0.2, 1),
+    visibility 0.32s;
+}
+
+.acc-body > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.closed .acc-body {
+  grid-template-rows: 0fr;
+  visibility: hidden;
+}
+
+/* Floating + button, always in the bottom right */
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 5;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0f1317;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.fab svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.5;
+}
+
+/* New entry window: a native modal dialog, centred on desktop */
+.entry {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: none;
+  color: inherit;
+  /* Lets the exercise list hang below the window instead of being clipped */
+  overflow: visible;
+  opacity: 0;
+  transform: translateY(16px) scale(0.97);
+  transition:
+    opacity 0.25s,
+    transform 0.25s cubic-bezier(0.3, 0.7, 0.2, 1),
+    overlay 0.25s allow-discrete,
+    display 0.25s allow-discrete;
+}
+
+.entry[open] {
+  opacity: 1;
+  transform: none;
+}
+
+.entry::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition:
+    opacity 0.25s,
+    overlay 0.25s allow-discrete,
+    display 0.25s allow-discrete;
+}
+
+.entry[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .entry[open] {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  .entry[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.entry .card {
+  background: rgba(30, 37, 45, 0.82);
+}
+
+.entry .head {
+  flex-wrap: nowrap;
+}
+
+/* Exercise picker: the arrow lists every previous exercise in the group, typing narrows it */
+.combo {
+  position: relative;
+}
+
+.combo input {
+  padding-right: 48px;
+}
+
+.arrow {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+
+.opts {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: grid;
+  padding: 6px;
+  max-height: 210px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: #171c22;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.opts button {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: none;
+  color: #e8ecef;
+  font-size: 15px;
+  text-align: left;
+}
+
+.opts button:hover,
+.opts button:focus-visible {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.opts p {
+  padding: 10px;
+}
+
+@media (max-width: 700px) {
+  /* Pinned to the top on a phone so the on-screen keyboard never covers the fields */
+  .entry {
+    margin-top: calc(12px + env(safe-area-inset-top));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side,
+  .acc::after,
+  .acc-body,
+  .entry,
+  .entry::backdrop {
+    transition: none;
   }
 }
