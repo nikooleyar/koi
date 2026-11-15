@@ -43,8 +43,33 @@ async function post<T>(url: string, body: unknown): Promise<T> {
   return r.json()
 }
 
+function Icon({ d }: { d: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={d} />
+    </svg>
+  )
+}
+
 function App() {
   const [view, setView] = useState<View>('log')
+  const [group, setGroup] = useState<Group>('chest')
+  // The sidebar always starts hidden so the content gets the full width
+  const [sideOpen, setSideOpen] = useState(false)
+  const [entryOpen, setEntryOpen] = useState(false)
+  // Bumped after each saved entry so the views reload their data
+  const [rev, setRev] = useState(0)
+  const [notice, setNotice] = useState('')
   const [accent, setAccent] = useState(() => {
     try {
       return localStorage.getItem('accent') ?? ACCENTS.Orange
@@ -52,6 +77,12 @@ function App() {
       return ACCENTS.Orange
     }
   })
+
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(''), 4000)
+    return () => clearTimeout(t)
+  }, [notice])
 
   function pickAccent(color: string) {
     setAccent(color)
@@ -63,8 +94,8 @@ function App() {
   }
 
   return (
-    <div className="shell" style={{ '--accent': accent } as CSSProperties}>
-      <aside className="side">
+    <div className={sideOpen ? 'shell' : 'shell side-closed'} style={{ '--accent': accent } as CSSProperties}>
+      <aside className="side" id="side">
         <div className="brand">
           <span>Koi</span>
         </div>
@@ -76,27 +107,24 @@ function App() {
               aria-current={v.id === view ? 'page' : undefined}
               onClick={() => setView(v.id)}
             >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d={v.icon} />
-              </svg>
+              <Icon d={v.icon} />
               <span>{v.label}</span>
             </button>
           ))}
         </nav>
       </aside>
       <main>
-        {view === 'log' && <LogView />}
-        {view === 'stats' && <StatsView />}
+        <button
+          className="burger"
+          aria-label="Menu"
+          aria-expanded={sideOpen}
+          aria-controls="side"
+          onClick={() => setSideOpen(!sideOpen)}
+        >
+          <Icon d="M4 7h16M4 12h16M4 17h16" />
+        </button>
+        {view === 'log' && <LogView group={group} onPick={setGroup} rev={rev} />}
+        {view === 'stats' && <StatsView key={rev} />}
         {view === 'weight' && <WeightView />}
         {view === 'settings' && (
           <>
@@ -118,6 +146,26 @@ function App() {
           </>
         )}
       </main>
+      <button className="fab" aria-label="New entry" onClick={() => setEntryOpen(true)}>
+        <Icon d="M12 5v14M5 12h14" />
+      </button>
+      <EntryDialog
+        open={entryOpen}
+        group={group}
+        onPick={setGroup}
+        onClose={() => setEntryOpen(false)}
+        onSaved={(saved) => {
+          setEntryOpen(false)
+          setRev((r) => r + 1)
+          // Built from the server's reply, so it only shows once the row is in the database
+          setNotice(`Saved: ${saved.exercise}, ${saved.weight} lb`)
+        }}
+      />
+      {notice && (
+        <p role="status" className="notice">
+          ✓ {notice}
+        </p>
+      )}
     </div>
   )
 }
@@ -126,7 +174,7 @@ function GroupTabs({ value, onPick }: { value: Group; onPick: (g: Group) => void
   return (
     <div className="tabs" role="group" aria-label="Muscle group">
       {GROUPS.map((g) => (
-        <button key={g} aria-pressed={g === value} onClick={() => onPick(g)}>
+        <button key={g} type="button" aria-pressed={g === value} onClick={() => onPick(g)}>
           {g}
         </button>
       ))}
@@ -134,39 +182,134 @@ function GroupTabs({ value, onPick }: { value: Group; onPick: (g: Group) => void
   )
 }
 
-function LogView() {
-  const [group, setGroup] = useState<Group>('chest')
+function LogView({ group, onPick, rev }: { group: Group; onPick: (g: Group) => void; rev: number }) {
   return (
     <>
       <header className="head">
         <h1>Log</h1>
-        <GroupTabs value={group} onPick={setGroup} />
+        <GroupTabs value={group} onPick={onPick} />
       </header>
-      <GroupLog key={group} group={group} />
+      <GroupLog key={group} group={group} rev={rev} />
     </>
   )
 }
 
-function GroupLog({ group }: { group: Group }) {
+function GroupLog({ group, rev }: { group: Group; rev: number }) {
   const [logs, setLogs] = useState<Log[]>([])
-  const [exercise, setExercise] = useState('')
-  const [weight, setWeight] = useState('')
-  const [rest, setRest] = useState('')
   const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [historyOpen, setHistoryOpen] = useState(true)
 
   useEffect(() => {
     fetch(`/api/logs?group=${group}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setLogs)
       .catch(() => setError('Could not load logs.'))
-  }, [group])
+  }, [group, rev])
+
+  const series = sessions(logs)
+  const latest = series.at(-1)
+  const yMax = Math.max(50, Math.ceil(Math.max(0, ...logs.map((l) => l.weight)) / 50) * 50)
+
+  return (
+    <>
+      {error && <p role="alert">{error}</p>}
+      <section className="card">
+        <div>
+          <p className="muted">Top weight per session</p>
+          <div className="big xl">{latest ? `${latest.weight} lb` : '—'}</div>
+          <p className="muted">{latest ? `${latest.exercise} · ${when(latest.logged_at)}` : 'Nothing logged'}</p>
+        </div>
+        <LineChart
+          values={series.map((l) => l.weight)}
+          labels={series.map((l) => shortDate(l.logged_at))}
+          min={0}
+          max={yMax}
+          dots
+          label={`Top ${group} weight per session, in pounds`}
+          empty={`No ${group} entries yet.`}
+        />
+      </section>
+
+      <section className={historyOpen ? 'card history' : 'card history closed'}>
+        <h2>
+          <button className="acc" aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}>
+            History
+          </button>
+        </h2>
+        <div className="acc-body">
+          <div>
+            {logs.length === 0 && !error && <p className="muted">No {group} entries yet.</p>}
+            <ul className="logs">
+              {logs.map((l) => (
+                <li key={l.id}>
+                  <div>
+                    <strong>{l.exercise}</strong>
+                    <p className="muted">
+                      <time dateTime={l.logged_at}>{when(l.logged_at)}</time>
+                      {l.rest_seconds != null && ` · rest ${l.rest_seconds} s`}
+                    </p>
+                  </div>
+                  <b>{l.weight} lb</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+    </>
+  )
+}
+
+// Exercises in `names` that contain `text`, ignoring case. Empty text matches everything.
+function matching(names: string[], text: string) {
+  const q = text.trim().toLowerCase()
+  return names.filter((n) => n.toLowerCase().includes(q))
+}
+
+function EntryDialog(props: {
+  open: boolean
+  group: Group
+  onPick: (g: Group) => void
+  onClose: () => void
+  onSaved: (saved: Log) => void
+}) {
+  const { open, group } = props
+  const dialog = useRef<HTMLDialogElement>(null)
+  const weightInput = useRef<HTMLInputElement>(null)
+  // Exercises already logged in a group; kept with its group so a stale list is never offered
+  const [known, setKnown] = useState<{ group: Group; names: string[] }>({ group, names: [] })
+  const [exercise, setExercise] = useState('')
+  const [weight, setWeight] = useState('')
+  const [rest, setRest] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  // Dropdown: 'all' after the arrow is pressed, 'match' while typing, null when closed
+  const [list, setList] = useState<'all' | 'match' | null>(null)
+
+  useEffect(() => {
+    const d = dialog.current!
+    if (open && !d.open) d.showModal()
+    if (!open && d.open) d.close()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    let stale = false
+    fetch(`/api/logs?group=${group}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((logs: Log[]) => {
+        if (!stale) setKnown({ group, names: [...new Set(logs.map((l) => l.exercise))] })
+      })
+      // Without the list the field still works as plain text
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [open, group])
 
   async function save() {
     setSaving(true)
     setError('')
-    setNotice('')
     try {
       const saved = await post<Log>('/api/logs', {
         muscle_group: group,
@@ -174,12 +317,10 @@ function GroupLog({ group }: { group: Group }) {
         weight: Number(weight),
         rest_seconds: rest === '' ? null : Number(rest),
       })
-      setLogs((old) => [saved, ...old])
-      // Built from the server's reply, so it only shows once the row is in the database
-      setNotice(`Saved: ${saved.exercise}, ${saved.weight} lb`)
       setExercise('')
       setWeight('')
       setRest('')
+      props.onSaved(saved)
     } catch {
       // Fields are left filled in so nothing typed is lost
       setError('Not saved. Check your connection and try again.')
@@ -188,8 +329,18 @@ function GroupLog({ group }: { group: Group }) {
     }
   }
 
+  const names = known.group === group ? known.names : []
+  const options = list === 'match' ? matching(names, exercise) : names
+
   return (
-    <div className="cols">
+    <dialog
+      ref={dialog}
+      className="entry"
+      aria-labelledby="entry-title"
+      onClose={props.onClose}
+      // A click on the dimmed area lands on the dialog itself, not on the form inside it
+      onClick={(e) => e.target === e.currentTarget && props.onClose()}
+    >
       <form
         className="card"
         onSubmit={(e) => {
@@ -197,26 +348,94 @@ function GroupLog({ group }: { group: Group }) {
           save()
         }}
       >
-        <h2>New entry</h2>
+        <div className="head">
+          <h2 id="entry-title">New entry</h2>
+          <button type="button" className="icon" aria-label="Close" onClick={props.onClose}>
+            <Icon d="M6 6l12 12M18 6L6 18" />
+          </button>
+        </div>
+        <GroupTabs value={group} onPick={props.onPick} />
         <label>
           Exercise
-          <input
-            value={exercise}
-            onChange={(e) => setExercise(e.target.value)}
-            list="exercises"
-            required
-            maxLength={100}
-          />
+          <div
+            className="combo"
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setList(null)
+            }}
+          >
+            <input
+              value={exercise}
+              onChange={(e) => {
+                setExercise(e.target.value)
+                setList('match')
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowDown') return
+                e.preventDefault()
+                if (list) e.currentTarget.parentElement!.querySelector<HTMLElement>('.opts button')?.focus()
+                else setList('all')
+              }}
+              role="combobox"
+              aria-expanded={list !== null}
+              aria-controls="exercise-opts"
+              aria-autocomplete="list"
+              autoComplete="off"
+              required
+              maxLength={100}
+            />
+            <button
+              type="button"
+              className="icon arrow"
+              aria-label="Show previous exercises"
+              // Keeps focus in the field, so opening the list does not also blur-close it
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setList(list ? null : 'all')}
+            >
+              <Icon d="M6 9l6 6 6-6" />
+            </button>
+            {list && (
+              <div
+                className="opts"
+                id="exercise-opts"
+                role="listbox"
+                onMouseDown={(e) => e.preventDefault()}
+                onKeyDown={(e) => {
+                  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+                  e.preventDefault()
+                  const el = e.target as HTMLElement
+                  const to = e.key === 'ArrowDown' ? el.nextElementSibling : el.previousElementSibling
+                  ;((to ?? e.currentTarget.parentElement!.querySelector('input')) as HTMLElement).focus()
+                }}
+              >
+                {options.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    role="option"
+                    aria-selected={name === exercise}
+                    onClick={() => {
+                      setExercise(name)
+                      setList(null)
+                      weightInput.current?.focus()
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+                {options.length === 0 && (
+                  <p className="muted">
+                    {names.length ? 'No previous exercise matches. Saving adds it as new.' : `No ${group} exercises logged yet.`}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </label>
-        <datalist id="exercises">
-          {[...new Set(logs.map((l) => l.exercise))].map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
         <div className="row2">
           <label>
             Weight (lb)
             <input
+              ref={weightInput}
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
               type="number"
@@ -244,32 +463,8 @@ function GroupLog({ group }: { group: Group }) {
           {saving ? 'Saving…' : 'Log entry'}
         </button>
         {error && <p role="alert">{error}</p>}
-        {notice && (
-          <p role="status" className="notice">
-            ✓ {notice}
-          </p>
-        )}
       </form>
-
-      <section className="card history">
-        <h2>History</h2>
-        {logs.length === 0 && !error && <p className="muted">No {group} entries yet.</p>}
-        <ul className="logs">
-          {logs.map((l) => (
-            <li key={l.id}>
-              <div>
-                <strong>{l.exercise}</strong>
-                <p className="muted">
-                  <time dateTime={l.logged_at}>{when(l.logged_at)}</time>
-                  {l.rest_seconds != null && ` · rest ${l.rest_seconds} s`}
-                </p>
-              </div>
-              <b>{l.weight} lb</b>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
+    </dialog>
   )
 }
 
