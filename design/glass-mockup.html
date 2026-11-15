@@ -1,0 +1,325 @@
+<title>Koi Glass Studies</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: a quiet gallery wall. Page chrome stays plain so the three framed app mocks carry all the color. */
+:root {
+  --bg: #f3f5f7; --fg: #12171c; --muted: #5d6873; --line: #d5dbe1; --chip: #ffffff;
+  --accent: #FF8552;
+  --display: 'Space Grotesk', system-ui, sans-serif;
+  --body: Inter, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0b0e11; --fg: #e8ecef; --muted: #9aa4ae; --line: #262d35; --chip: #171c22; color-scheme: dark }
+}
+:root[data-theme="dark"] { --bg: #0b0e11; --fg: #e8ecef; --muted: #9aa4ae; --line: #262d35; --chip: #171c22; color-scheme: dark }
+
+body {
+  background: var(--bg); color: var(--fg);
+  font: 15px/1.45 var(--body);
+  padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.page { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, .h1, .h2, .big, .brand, .logs b { font-family: var(--display); font-weight: 600; margin: 0; }
+h1 { font-size: 32px; text-wrap: balance; }
+h2 { font-size: 22px; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 62ch; margin-top: 8px; }
+button, input { font: inherit; }
+button { border: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+.ctl { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.swatches { display: flex; gap: 8px; }
+.swatches button { width: 28px; height: 28px; border-radius: 50%; }
+.swatches [aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 2px; }
+.seg { display: flex; padding: 3px; border-radius: 999px; background: var(--chip); border: 1px solid var(--line); }
+.seg button { padding: 6px 14px; border-radius: 999px; background: none; color: var(--muted); font-weight: 500; }
+.seg [aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+.study { display: grid; gap: 14px; }
+.study header { display: grid; gap: 4px; }
+.study header p { color: var(--muted); max-width: 70ch; }
+
+/* ---------- The app mock. Each variant only sets variables. ---------- */
+.mock {
+  position: relative; isolation: isolate; overflow: hidden; container-type: inline-size;
+  border-radius: 28px; background: var(--m-bg); color: var(--m-fg);
+  font-size: 15px; line-height: 1.4;
+}
+/* width:100% is needed: with auto margins a size-contained grid item otherwise shrinks to zero. */
+body.phone .mock { width: 100%; max-width: 390px; margin-inline: auto; }
+.blobs { position: absolute; inset: 0; z-index: -1; }
+.blobs i { position: absolute; border-radius: 50%; filter: blur(70px); }
+.blobs i:nth-child(1) { width: 46%; aspect-ratio: 1; left: -8%; top: -14%; background: var(--b1); }
+.blobs i:nth-child(2) { width: 42%; aspect-ratio: 1; right: -6%; top: 22%; background: var(--b2); }
+.blobs i:nth-child(3) { width: 50%; aspect-ratio: 1; left: 24%; bottom: -24%; background: var(--b3); }
+
+.glass {
+  background: var(--m-glass);
+  -webkit-backdrop-filter: blur(var(--m-blur)) saturate(var(--m-sat));
+  backdrop-filter: blur(var(--m-blur)) saturate(var(--m-sat));
+  border: 1px solid var(--m-edge);
+  box-shadow: inset 0 1px 0 var(--m-hi), var(--m-shadow);
+}
+.shell { display: flex; align-items: stretch; gap: 16px; padding: 16px; }
+.side { flex: none; box-sizing: border-box; width: 200px; padding: 20px 12px; border-radius: var(--m-r); display: flex; flex-direction: column; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; font-size: 20px; }
+.brand::before { content: ''; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); box-shadow: inset 0 2px 3px rgba(255,255,255,.5), 0 0 18px color-mix(in srgb, var(--accent) 50%, transparent); }
+.side nav { display: grid; gap: 4px; }
+.side button, .tabs button { min-height: 44px; border-radius: var(--m-rc); background: none; color: var(--m-soft); font-weight: 500; border: 1px solid transparent; }
+.side button { display: flex; align-items: center; gap: 12px; padding: 0 12px; }
+.side svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.side button[aria-current="page"], .tabs button[aria-pressed="true"], .primary {
+  background: var(--m-sel); color: var(--m-sel-fg); border: 1px solid var(--m-sel-edge);
+  box-shadow: inset 0 1px 0 var(--m-sel-hi), var(--m-sel-glow);
+}
+.main { flex: 1; min-width: 0; display: grid; gap: 16px; align-content: start; }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.title { display: flex; align-items: center; gap: 12px; }
+.burger { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--m-rc); color: var(--m-fg); }
+.burger svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+/* Slide out by pulling the sidebar past the left edge; the content widens as the margin shrinks. */
+.shell { --side-w: 200px; --gap: 16px; }
+.side { transition: margin-left .32s cubic-bezier(.3,.7,.2,1), transform .32s cubic-bezier(.3,.7,.2,1), opacity .25s, visibility .32s; }
+.mock.collapsed .side { margin-left: calc(-1 * (var(--side-w) + var(--gap))); opacity: 0; visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .side, .sheet, .scrim, .fab svg { transition: none; } }
+.h1 { font-size: 28px; }
+.h2 { font-size: 18px; }
+.tabs { display: flex; gap: 4px; padding: 4px; border-radius: calc(var(--m-rc) + 4px); }
+.tabs button { flex: 1; padding: 0 14px; text-transform: capitalize; }
+.card { box-sizing: border-box; padding: 24px; border-radius: var(--m-r); display: grid; gap: 16px; align-content: start; }
+.history { gap: 4px; }
+/* Floating + button: sticks to the bottom right of the screen while the app is in view. */
+.mock { overflow: clip; }
+.fabwrap { position: sticky; bottom: 16px; z-index: 2; justify-self: end; width: 56px; height: 56px; }
+.fab { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--m-sel); color: var(--m-sel-fg); border: 1px solid var(--m-sel-edge); box-shadow: inset 0 1px 0 var(--m-sel-hi), 0 8px 24px rgba(0,0,0,.35), var(--m-sel-glow); }
+.fab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; transition: transform .25s; }
+.logging .fab svg { transform: rotate(45deg); }
+.sheet { position: absolute; right: 0; bottom: 68px; width: min(340px, calc(100cqw - 48px)); transform-origin: bottom right; transform: scale(.9) translateY(12px); opacity: 0; visibility: hidden; transition: transform .25s cubic-bezier(.3,.7,.2,1), opacity .2s, visibility .25s; }
+.sheet .tabs { background: var(--m-field); border: 1px solid var(--m-edge); }
+.sheet .tabs button { padding: 0 6px; }
+.logging .sheet { transform: none; opacity: 1; visibility: visible; }
+.scrim { position: absolute; inset: 0; z-index: 1; background: rgba(0,0,0,.45); opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; }
+.logging .scrim { opacity: 1; visibility: visible; }
+.mock label { display: grid; gap: 6px; font-size: 13px; color: var(--m-muted); }
+.mock input {
+  box-sizing: border-box; width: 100%; height: 48px; padding: 0 14px; font-size: 16px;
+  border: 1px solid var(--m-edge); border-radius: var(--m-rc);
+  background: var(--m-field); color: var(--m-fg);
+  box-shadow: inset 0 1px 3px var(--m-well);
+}
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.primary { height: 52px; border-radius: var(--m-rc); font-size: 16px; font-weight: 600; }
+.m-muted { font-size: 13px; color: var(--m-muted); }
+.logs { list-style: none; margin: 0; padding: 0; }
+.logs li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--m-line); }
+.logs li:last-child { border-bottom: 0; }
+.logs strong { font-weight: 500; }
+.logs b { font-size: 20px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.big { font-size: 40px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+
+.chart { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 12px; padding-right: 16px; }
+.ylabels { height: 200px; display: flex; flex-direction: column; justify-content: space-between; text-align: right; }
+.ylabels span { height: 0; line-height: 0; }
+.ylabels, .xlabels { font-size: 12px; color: var(--m-muted); font-variant-numeric: tabular-nums; }
+.plot { position: relative; height: 200px; border-bottom: 1px solid var(--m-line); background: linear-gradient(var(--m-line) 1px, transparent 1px) 0 0 / 100% 25%; }
+.plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.plot polyline { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)); }
+.plot polygon { fill: var(--accent); fill-opacity: .14; }
+.dot { position: absolute; box-sizing: border-box; width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 2px solid var(--accent); border-radius: 50%; background: var(--m-dot); }
+.xlabels { grid-column: 2; position: relative; height: 16px; }
+.xlabels span { position: absolute; transform: translateX(-50%); }
+
+@container (max-width: 700px) {
+  .shell { gap: 12px; padding: 12px; --side-w: 60px; --gap: 12px; }
+  .v-tide.collapsed .side { margin-left: 0; transform: translateY(160%); }
+  .side { width: 60px; padding: 16px 8px; align-items: center; }
+  .brand { padding: 0; }
+  .brand span, .side button span { display: none; }
+  .side button { width: 44px; padding: 0; justify-content: center; }
+  .card { padding: 16px; }
+  .tabs { flex: 1; }
+  .xlabels span:nth-child(even) { display: none; }
+  /* Tide only: the rail becomes a floating bottom tab bar, the way iOS does it. */
+  .v-tide .shell { flex-direction: column; }
+  .v-tide .side { order: 2; position: sticky; bottom: 12px; align-self: center; width: auto; flex-direction: row; padding: 6px; border-radius: 999px; }
+  .v-tide .brand { display: none; }
+  .v-tide .side nav { display: flex; }
+  .v-tide .side button { border-radius: 999px; width: 56px; }
+}
+
+/* 1. Smoke: the current palette, panels turned to dark frosted glass. */
+.v-smoke {
+  --m-bg: #0f1317; --m-fg: #e8ecef; --m-soft: #c5ccd3; --m-muted: #9aa4ae; --m-line: rgba(255,255,255,.09);
+  --b1: color-mix(in srgb, var(--accent) 38%, transparent); --b2: rgba(74,108,150,.42); --b3: color-mix(in srgb, var(--accent) 16%, transparent);
+  --m-glass: rgba(30,37,45,.55); --m-blur: 28px; --m-sat: 140%;
+  --m-edge: rgba(255,255,255,.08); --m-hi: rgba(255,255,255,.10); --m-shadow: 0 12px 32px rgba(0,0,0,.35);
+  --m-field: rgba(8,11,14,.55); --m-well: rgba(0,0,0,.5); --m-dot: #171c22;
+  --m-r: 20px; --m-rc: 12px;
+  --m-sel: var(--accent); --m-sel-fg: #0f1317; --m-sel-edge: transparent; --m-sel-hi: rgba(255,255,255,.35); --m-sel-glow: 0 0 0 transparent;
+}
+/* 2. Tide: clear, bright glass over deep water color. Controls are tinted glass, not solid fills. */
+.v-tide {
+  --m-bg: #07101c; --m-fg: #f4f7fa; --m-soft: #dbe3ea; --m-muted: #b4c0cc; --m-line: rgba(255,255,255,.14);
+  --b1: color-mix(in srgb, var(--accent) 85%, transparent); --b2: rgba(40,170,200,.8); --b3: rgba(96,84,230,.75);
+  --m-glass: linear-gradient(140deg, rgba(255,255,255,.17), rgba(255,255,255,.05) 60%); --m-blur: 22px; --m-sat: 190%;
+  --m-edge: rgba(255,255,255,.22); --m-hi: rgba(255,255,255,.45); --m-shadow: 0 16px 40px rgba(0,8,24,.38);
+  --m-field: rgba(255,255,255,.08); --m-well: rgba(0,0,0,.28); --m-dot: #1b2740;
+  --m-r: 28px; --m-rc: 999px;
+  --m-sel: color-mix(in srgb, var(--accent) 48%, transparent); --m-sel-fg: #fff;
+  --m-sel-edge: color-mix(in srgb, var(--accent) 60%, #fff); --m-sel-hi: rgba(255,255,255,.55);
+  --m-sel-glow: 0 6px 22px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.v-tide .card, .v-tide .side { border-radius: 28px; }
+.v-tide input { border-radius: 16px; }
+/* 3. Frost: daylight. Milky white glass, dark ink, the accent kept for fills. */
+.v-frost {
+  --m-bg: #e9eef3; --m-fg: #151b21; --m-soft: #36414b; --m-muted: #55616c; --m-line: rgba(20,30,40,.11);
+  --b1: color-mix(in srgb, var(--accent) 60%, transparent); --b2: rgba(120,180,255,.6); --b3: rgba(255,170,205,.5);
+  --m-glass: rgba(255,255,255,.52); --m-blur: 30px; --m-sat: 170%;
+  --m-edge: rgba(255,255,255,.75); --m-hi: rgba(255,255,255,.95); --m-shadow: 0 14px 34px rgba(50,70,100,.16);
+  --m-field: rgba(255,255,255,.6); --m-well: rgba(40,60,90,.14); --m-dot: #fff;
+  --m-r: 24px; --m-rc: 14px;
+  --m-sel: var(--accent); --m-sel-fg: #151b21; --m-sel-edge: rgba(255,255,255,.6); --m-sel-hi: rgba(255,255,255,.6);
+  --m-sel-glow: 0 6px 18px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+</style>
+
+<div class="page">
+  <header>
+    <h1>Koi Glass Studies</h1>
+    <p class="lede">Three takes on the current Koi layout with a liquid glass treatment. The layout, type and copy are the same as the live app; only the surfaces change. Entries shown are examples, not your logged data.</p>
+  </header>
+
+  <div class="controls">
+    <div class="ctl">Accent <div class="swatches" id="swatches"></div></div>
+    <div class="ctl">Width
+      <div class="seg" id="width">
+        <button type="button" aria-pressed="true" data-w="">Desktop</button>
+        <button type="button" aria-pressed="false" data-w="phone">Phone</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="studies" style="display:grid;gap:48px"></div>
+</div>
+
+<script>
+const ACCENTS = { Orange: '#FF8552', Teal: '#3DD6C3', Blue: '#6EA8FF', Lime: '#C8E55A' };
+const STUDIES = [
+  { id: 'smoke', name: 'Smoke, with a sliding sidebar', note: 'The chosen direction. Same charcoal palette and solid accent buttons, with dark frosted glass panels. The chart sits at the top, and the + button in the bottom right opens the New entry window. The three-line button beside the page title slides the sidebar out and back in.' },
+  { id: 'frost', name: 'Frost', note: 'A daylight version. Milky white glass with dark text.' },
+  { id: 'tide', name: 'Tide', note: 'The full liquid look. Clear, bright glass over deep color, pill-shaped controls, and tinted-glass buttons in place of solid fills. At phone width the sidebar becomes a floating tab bar.' },
+];
+const NAV = [
+  ['Log', 'M12 5v14M5 12h14'],
+  ['Stats', 'M4 19V9M10 19V5M16 19v-7M21 19H3'],
+  ['Weight', 'M5 7h14l-1.5 12h-11zM9 7a3 3 0 0 1 6 0'],
+  ['Settings', 'M4 7h10M18 7h2M4 17h2M10 17h10M16 5v4M8 15v4'],
+];
+const LOGS = [
+  ['Bench press', 'Today, 6:42 PM · rest 2:30', '185 lb'],
+  ['Incline dumbbell press', 'Today, 6:55 PM · rest 2:00', '65 lb'],
+  ['Cable fly', 'Today, 7:08 PM · rest 1:30', '40 lb'],
+  ['Bench press', 'Tue, 6:30 PM · rest 2:30', '180 lb'],
+];
+// Top weight per session, one scale for line, dots and labels: 150 to 190 lb.
+const PTS = [['10/20',165],['10/23',170],['10/27',170],['10/30',175],['11/3',180],['11/6',180],['11/10',185],['11/13',185]];
+const LO = 150, HI = 190;
+const xy = PTS.map(([d, v], i) => [i / (PTS.length - 1) * 100, (HI - v) / (HI - LO) * 100, d]);
+const line = xy.map(([x, y]) => x.toFixed(1) + ',' + y).join(' ');
+
+const mock = v => `
+<div class="mock v-${v}">
+  <div class="blobs"><i></i><i></i><i></i></div>
+  <div class="shell">
+    <aside class="side glass">
+      <div class="brand"><span>Koi</span></div>
+      <nav>${NAV.map(([n, d], i) => `<button type="button" ${i ? '' : 'aria-current="page"'} aria-label="${n}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><span>${n}</span></button>`).join('')}</nav>
+    </aside>
+    <div class="main">
+      <div class="head">
+        <div class="title">
+          <button type="button" class="burger glass" aria-label="Toggle sidebar" aria-expanded="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <div class="h1">Log</div>
+        </div>
+        <div class="tabs glass">${['chest', 'arms', 'legs', 'back'].map((g, i) => `<button type="button" aria-pressed="${!i}">${g}</button>`).join('')}</div>
+      </div>
+      <div class="card glass">
+        <div>
+          <p class="m-muted">Top weight per session</p>
+          <div class="big">185 lb</div>
+          <p class="m-muted">Bench press · Today</p>
+        </div>
+        <div class="chart">
+          <div class="ylabels">${[190, 180, 170, 160, 150].map(n => `<span>${n}</span>`).join('')}</div>
+          <div class="plot">
+            <svg role="img" aria-label="Top chest weight per session, rising from 165 to 185 lb" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <polygon points="0,100 ${line} 100,100"/><polyline points="${line}"/>
+            </svg>
+            ${xy.map(([x, y]) => `<i class="dot" style="left:${x}%;top:${y}%"></i>`).join('')}
+          </div>
+          <div class="xlabels">${xy.map(([x, , d]) => `<span style="left:${x}%">${d}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="card glass history">
+        <div class="h2">History</div>
+        <ul class="logs">${LOGS.map(([e, t, w]) => `<li><div><strong>${e}</strong><p class="m-muted">${t}</p></div><b>${w}</b></li>`).join('')}</ul>
+      </div>
+      <div class="fabwrap">
+        <div class="card glass sheet" role="dialog" aria-label="New entry">
+          <div class="h2">New entry</div>
+          <div class="tabs" role="group" aria-label="Muscle group">${['chest', 'arms', 'legs', 'back'].map((g, i) => `<button type="button" aria-pressed="${!i}">${g}</button>`).join('')}</div>
+          <label>Exercise<input id="${v}-ex" value="Bench press"></label>
+          <div class="row2">
+            <label>Weight (lb)<input id="${v}-wt" value="185" inputmode="decimal"></label>
+            <label>Rest (sec)<input id="${v}-rest" value="150" inputmode="numeric"></label>
+          </div>
+          <button type="button" class="primary">Save entry</button>
+        </div>
+        <button type="button" class="fab" aria-label="New entry" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+</div>`;
+
+document.getElementById('studies').innerHTML = STUDIES.map(s =>
+  `<section class="study"><header><h2>${s.name}</h2><p>${s.note}</p></header>${mock(s.id)}</section>`).join('');
+
+const sw = document.getElementById('swatches');
+sw.innerHTML = Object.entries(ACCENTS).map(([n, c], i) =>
+  `<button type="button" aria-label="${n}" aria-pressed="${!i}" data-c="${c}" style="background:${c}"></button>`).join('');
+
+// One listener: pick within a group (accent, width, mock tabs, mock nav).
+document.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  // The + button opens the entry window; the dimmed background, Save, or + again closes it.
+  if (e.target.closest('.fab, .scrim, .sheet .primary')) {
+    const m = e.target.closest('.mock');
+    const open = m.classList.toggle('logging', b?.matches('.fab') ? undefined : false);
+    m.querySelector('.fab').setAttribute('aria-expanded', open);
+    return;
+  }
+  if (b?.matches('.burger')) {
+    b.setAttribute('aria-expanded', !b.closest('.mock').classList.toggle('collapsed'));
+    return;
+  }
+  const group = b && b.closest('.swatches, .seg, .tabs, .side nav');
+  if (!group) return;
+  const attr = group.matches('nav') ? 'aria-current' : 'aria-pressed';
+  for (const o of group.children) attr === 'aria-current' ? o.removeAttribute(attr) : o.setAttribute(attr, 'false');
+  b.setAttribute(attr, attr === 'aria-current' ? 'page' : 'true');
+  // The group tabs on the page and in the entry window are one choice, so keep them in step.
+  if (group.matches('.tabs')) {
+    const i = [...group.children].indexOf(b);
+    b.closest('.mock').querySelectorAll('.tabs').forEach(t => [...t.children].forEach((o, j) => o.setAttribute('aria-pressed', j === i)));
+  }
+  if (b.dataset.c) document.documentElement.style.setProperty('--accent', b.dataset.c);
+  if ('w' in b.dataset) document.body.classList.toggle('phone', b.dataset.w === 'phone');
+});
+</script>
