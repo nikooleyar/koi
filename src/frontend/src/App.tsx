@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import './App.css'
 
 const GROUPS = ['chest', 'arms', 'legs', 'back'] as const
@@ -175,6 +175,30 @@ function App() {
   )
 }
 
+// Native modal dialog: traps focus and closes on Escape or a click on the dimmed area
+function Modal(props: { open: boolean; onClose: () => void; labelledBy: string; children: ReactNode }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const d = dialog.current!
+    if (props.open && !d.open) d.showModal()
+    if (!props.open && d.open) d.close()
+  }, [props.open])
+
+  return (
+    <dialog
+      ref={dialog}
+      className="entry"
+      aria-labelledby={props.labelledBy}
+      onClose={props.onClose}
+      // A click on the dimmed area lands on the dialog itself, not on the content inside it
+      onClick={(e) => e.target === e.currentTarget && props.onClose()}
+    >
+      {props.children}
+    </dialog>
+  )
+}
+
 function GroupTabs({ value, onPick }: { value: Group; onPick: (g: Group) => void }) {
   return (
     <div className="tabs" role="group" aria-label="Muscle group">
@@ -203,6 +227,12 @@ function GroupLog({ group, rev }: { group: Group; rev: number }) {
   const [logs, setLogs] = useState<Log[]>([])
   const [error, setError] = useState('')
   const [historyOpen, setHistoryOpen] = useState(true)
+  // The ⋯ menu is one shared popover, placed under whichever row's button opened it
+  const [menu, setMenu] = useState<{ log: Log; top: number; right: number } | null>(null)
+  // The entry waiting for a yes or no in the confirmation window
+  const [doomed, setDoomed] = useState<Log | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     fetch(`/api/logs?group=${group}`)
@@ -210,6 +240,22 @@ function GroupLog({ group, rev }: { group: Group; rev: number }) {
       .then(setLogs)
       .catch(() => setError('Could not load logs.'))
   }, [group, rev])
+
+  async function remove(log: Log) {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      const r = await fetch(`/api/logs/${log.id}`, { method: 'DELETE', signal: AbortSignal.timeout(10000) })
+      // 404 means it is already gone, which is what was asked for
+      if (!r.ok && r.status !== 404) throw new Error()
+      setLogs((old) => old.filter((l) => l.id !== log.id))
+      setDoomed(null)
+    } catch {
+      setDeleteError('Not deleted. Check your connection and try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const series = sessions(logs)
   const latest = series.at(-1)
@@ -255,12 +301,59 @@ function GroupLog({ group, rev }: { group: Group; rev: number }) {
                     </p>
                   </div>
                   <b>{l.weight} lb</b>
+                  <button
+                    className="icon"
+                    aria-label={`More options for ${l.exercise}`}
+                    popoverTarget="log-menu"
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect()
+                      // Kept on screen when the row is at the very bottom
+                      setMenu({ log: l, top: Math.min(r.bottom + 4, innerHeight - 64), right: innerWidth - r.right })
+                    }}
+                  >
+                    <Icon d="M5 12h.01M12 12h.01M19 12h.01" />
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
         </div>
       </section>
+
+      {/* A popover sits above everything, so the accordion's clipping can't cut it off */}
+      <div id="log-menu" popover="auto" className="menu" style={menu ? { top: menu.top, right: menu.right } : undefined}>
+        <button
+          className="danger"
+          popoverTarget="log-menu"
+          popoverTargetAction="hide"
+          onClick={() => {
+            setDeleteError('')
+            setDoomed(menu!.log)
+          }}
+        >
+          Delete
+        </button>
+      </div>
+
+      <Modal open={doomed !== null} onClose={() => setDoomed(null)} labelledBy="delete-title">
+        <div className="card">
+          <h2 id="delete-title">Delete this entry?</h2>
+          {doomed && (
+            <p className="muted">
+              {doomed.exercise}, {doomed.weight} lb · {when(doomed.logged_at)}. This can't be undone.
+            </p>
+          )}
+          {deleteError && <p role="alert">{deleteError}</p>}
+          <div className="row2">
+            <button className="ghost" onClick={() => setDoomed(null)}>
+              Cancel
+            </button>
+            <button className="primary danger" disabled={deleting} onClick={() => remove(doomed!)}>
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }
@@ -279,7 +372,6 @@ function EntryDialog(props: {
   onSaved: (saved: Log) => void
 }) {
   const { open, group } = props
-  const dialog = useRef<HTMLDialogElement>(null)
   const weightInput = useRef<HTMLInputElement>(null)
   // Exercises already logged in a group; kept with its group so a stale list is never offered
   const [known, setKnown] = useState<{ group: Group; names: string[] }>({ group, names: [] })
@@ -290,12 +382,6 @@ function EntryDialog(props: {
   const [saving, setSaving] = useState(false)
   // Dropdown: 'all' after the arrow is pressed, 'match' while typing, null when closed
   const [list, setList] = useState<'all' | 'match' | null>(null)
-
-  useEffect(() => {
-    const d = dialog.current!
-    if (open && !d.open) d.showModal()
-    if (!open && d.open) d.close()
-  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -338,14 +424,7 @@ function EntryDialog(props: {
   const options = list === 'match' ? matching(names, exercise) : names
 
   return (
-    <dialog
-      ref={dialog}
-      className="entry"
-      aria-labelledby="entry-title"
-      onClose={props.onClose}
-      // A click on the dimmed area lands on the dialog itself, not on the form inside it
-      onClick={(e) => e.target === e.currentTarget && props.onClose()}
-    >
+    <Modal open={open} onClose={props.onClose} labelledBy="entry-title">
       <form
         className="card"
         onSubmit={(e) => {
@@ -469,7 +548,7 @@ function EntryDialog(props: {
         </button>
         {error && <p role="alert">{error}</p>}
       </form>
-    </dialog>
+    </Modal>
   )
 }
 
