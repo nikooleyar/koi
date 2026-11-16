@@ -699,3 +699,60 @@ input {
     transition: none;
   }
 }
+
+/* History rows: the text takes the free space so the weight and the ⋯ button sit at the right */
+.logs li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.logs .icon svg {
+  stroke-width: 3;
+}
+
+/* Per-entry menu: a popover placed by the app under the ⋯ button that opened it */
+.menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: #171c22;
+  color: inherit;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.menu button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: none;
+  color: #e8ecef;
+  text-align: left;
+}
+
+.menu button:hover,
+.menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.menu .danger {
+  color: #ff8a80;
+}
+
+.ghost {
+  height: 52px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8ecef;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.primary.danger {
+  background: #ff8a80;
+}

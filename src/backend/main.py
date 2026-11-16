@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import psycopg
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from psycopg.rows import dict_row
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
@@ -76,6 +76,14 @@ def add_log(log: LogIn):
             "INSERT INTO logs (muscle_group, exercise, weight, rest_seconds) VALUES (%s, %s, %s, %s) RETURNING *",
             (log.muscle_group, log.exercise, log.weight, log.rest_seconds),
         ).fetchone()
+
+
+@app.delete("/api/logs/{log_id}", status_code=204)
+def delete_log(log_id: int):
+    with db() as conn:
+        # Permanent: the row is removed, not hidden.
+        if conn.execute("DELETE FROM logs WHERE id = %s", (log_id,)).rowcount == 0:
+            raise HTTPException(404, "No such log")
 
 
 @app.get("/api/weight")
