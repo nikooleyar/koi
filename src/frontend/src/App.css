@@ -152,6 +152,11 @@ button {
   padding: 0 12px;
 }
 
+/* Pinned to the bottom of the sidebar, away from the navigation */
+.reload {
+  margin-top: auto;
+}
+
 .side button[aria-current='page'],
 .tabs button[aria-pressed='true'] {
   background: var(--accent);

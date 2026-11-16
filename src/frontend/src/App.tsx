@@ -112,6 +112,11 @@ function App() {
             </button>
           ))}
         </nav>
+        {/* An installed PWA has no browser reload button, so the app provides one */}
+        <button className="reload" aria-label="Reload" onClick={() => location.reload()}>
+          <Icon d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5" />
+          <span>Reload</span>
+        </button>
       </aside>
       <main>
         <button
